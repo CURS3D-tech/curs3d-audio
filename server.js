@@ -7,10 +7,16 @@ const { spawn } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const APP_VERSION = '3.1-diagnostics';
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || '';
 const DOWNLOADS = process.env.DOWNLOAD_DIR || path.join(__dirname, 'downloads');
+const COOKIE_FILE = path.join(DOWNLOADS, 'youtube-cookies.txt');
 
 fs.mkdirSync(DOWNLOADS, { recursive: true });
+
+if (process.env.YOUTUBE_COOKIES_BASE64) {
+  fs.writeFileSync(COOKIE_FILE, Buffer.from(process.env.YOUTUBE_COOKIES_BASE64, 'base64'));
+}
 
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
@@ -63,7 +69,14 @@ function runYtDlp(args) {
 }
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true });
+  res.json({ ok: true, version: APP_VERSION });
+});
+
+app.get('/version', (_req, res) => {
+  res.json({
+    version: APP_VERSION,
+    hasCookies: fs.existsSync(COOKIE_FILE)
+  });
 });
 
 app.post('/convert', async (req, res) => {
@@ -79,17 +92,23 @@ app.post('/convert', async (req, res) => {
   const outputTemplate = path.join(DOWNLOADS, `${safeName}.%(ext)s`);
   const finalPath = path.join(DOWNLOADS, `${safeName}.mp3`);
   const cleanUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  const args = [
+    '--no-playlist',
+    '--extract-audio',
+    '--audio-format', 'mp3',
+    '--audio-quality', `${bitrate}K`,
+    '--ffmpeg-location', '/usr/bin',
+    '--extractor-args', 'youtube:player_client=android,web',
+    '--output', outputTemplate,
+    cleanUrl
+  ];
+
+  if (fs.existsSync(COOKIE_FILE)) {
+    args.unshift('--cookies', COOKIE_FILE);
+  }
 
   try {
-    await runYtDlp([
-      '--no-playlist',
-      '--extract-audio',
-      '--audio-format', 'mp3',
-      '--audio-quality', `${bitrate}K`,
-      '--ffmpeg-location', '/usr/bin',
-      '--output', outputTemplate,
-      cleanUrl
-    ]);
+    await runYtDlp(args);
 
     if (!fs.existsSync(finalPath)) {
       return res.status(500).json({ error: 'Conversion finished, but the MP3 file was not created.' });
@@ -103,8 +122,9 @@ app.post('/convert', async (req, res) => {
     });
   } catch (err) {
     console.error(err);
+    const details = String(err.message || '').split('\n').slice(-4).join(' ').trim();
     res.status(500).json({
-      error: 'Conversion failed. If this keeps happening, redeploy so yt-dlp updates, or try another YouTube link.'
+      error: details || `Backend ${APP_VERSION}: yt-dlp failed, but did not return details. Open Railway logs for the exact failure.`
     });
   }
 });
