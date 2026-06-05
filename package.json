@@ -1,6 +1,6 @@
 {
   "name": "curs3d-audio",
-  "version": "3.0.0",
+  "version": "3.2.0-cookies-fixed",
   "private": true,
   "main": "server.js",
   "scripts": {
