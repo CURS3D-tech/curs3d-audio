@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CURS3D // Audio Portal</title>
+  <style>
+    @import url('[fonts.googleapis.com](https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500&display=swap)');
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --purple:#7c3aed;--purple-light:#a855f7;--purple-dark:#4c1d95;
+      --bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a26;
+      --border:#2a2a3d;--text:#e2e8f0;--muted:#64748b;
+      --error:#ef4444;--success:#22c55e;
+    }
+    body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;}
+    .glow-orb{position:fixed;border-radius:50%;filter:blur(80px);pointer-events:none;z-index:0;opacity:.15}
+    .orb1{width:400px;height:400px;background:var(--purple);top:-100px;left:-100px}
+    .orb2{width:300px;height:300px;background:#ec4899;bottom:0;right:-80px}
+    header{width:100%;padding:24px 32px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);background:rgba(10,10,15,.8);backdrop-filter:blur(12px);position:sticky;top:0;z-index:10}
+    .logo{font-family:'Orbitron',monospace;font-weight:900;font-size:1.5rem;letter-spacing:.15em;background:linear-gradient(135deg,var(--purple-light),#ec4899);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .logo span{color:white;-webkit-text-fill-color:white;opacity:.4;font-size:.85rem;font-family:'Inter',sans-serif;font-weight:300;letter-spacing:.3em;display:block;margin-top:-4px}
+    .tag{font-size:.7rem;letter-spacing:.2em;color:var(--purple-light);border:1px solid var(--purple-dark);padding:4px 10px;border-radius:4px;font-family:'Orbitron',monospace}
+    .hero{text-align:center;padding:60px 24px 40px}
+    .hero h1{font-family:'Orbitron',monospace;font-size:clamp(2rem,6vw,3.5rem);font-weight:900;line-height:1.1;margin-bottom:16px;background:linear-gradient(135deg,#fff 30%,var(--purple-light));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .hero p{color:var(--muted);font-size:1rem;max-width:420px;margin:0 auto;line-height:1.6}
+    main{width:100%;max-width:580px;padding:0 20px 60px;position:relative;z-index:1}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;margin-bottom:20px}
+    .card-title{font-family:'Orbitron',monospace;font-size:.8rem;letter-spacing:.2em;color:var(--purple-light);margin-bottom:24px;display:flex;align-items:center;gap:8px}
+    .card-title::before{content:'';width:3px;height:14px;background:var(--purple-light);border-radius:2px;display:inline-block}
+    .field{margin-bottom:20px}
+    label{display:block;font-size:.8rem;font-weight:500;color:var(--muted);margin-bottom:8px;letter-spacing:.05em;text-transform:uppercase}
+    input,select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:13px 16px;color:var(--text);font-size:.95rem;font-family:'Inter',sans-serif;transition:border-color .2s,box-shadow .2s;outline:none}
+    input:focus,select:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(124,58,237,.15)}
+    input::placeholder{color:var(--muted);opacity:.6}
+    .btn{width:100%;padding:15px;border:none;border-radius:10px;font-size:.95rem;font-weight:600;cursor:pointer;transition:all .2s;font-family:'Orbitron',monospace;letter-spacing:.1em}
+    .btn-primary{background:linear-gradient(135deg,var(--purple),#a855f7);color:white}
+    .btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 8px 25px rgba(124,58,237,.4)}
+    .btn-primary:disabled{opacity:.5;cursor:not-allowed}
+    .btn-copy{background:var(--surface2);border:1px solid var(--border);color:var(--text);font-family:'Inter',sans-serif;letter-spacing:0;font-size:.85rem;padding:10px 18px;width:auto;border-radius:8px;cursor:pointer}
+    .btn-copy:hover{border-color:var(--purple);color:var(--purple-light)}
+    .status{margin-top:20px;padding:14px 18px;border-radius:10px;font-size:.88rem;display:none;align-items:center;gap:10px}
+    .status.loading{display:flex;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.3);color:var(--purple-light)}
+    .status.error{display:flex;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:var(--error)}
+    .status.success{display:flex;flex-direction:column;align-items:flex-start;gap:12px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);color:var(--success)}
+    .result-url{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:.8rem;color:var(--purple-light);font-family:'Inter',monospace;word-break:break-all;line-height:1.5}
+    .result-actions{display:flex;gap:10px;flex-wrap:wrap}
+    .spinner{width:16px;height:16px;border:2px solid rgba(168,85,247,.3);border-top-color:var(--purple-light);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .steps{display:flex;flex-direction:column;gap:14px}
+    .step{display:flex;align-items:flex-start;gap:14px}
+    .step-num{width:28px;height:28px;border-radius:50%;background:var(--purple-dark);border:1px solid var(--purple);color:var(--purple-light);font-size:.75rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'Orbitron',monospace}
+    .step-text{font-size:.88rem;color:var(--muted);line-height:1.5;padding-top:4px}
+    .step-text strong{color:var(--text)}
+    footer{text-align:center;padding:24px;color:var(--muted);font-size:.75rem;letter-spacing:.1em;border-top:1px solid var(--border);width:100%;position:relative;z-index:1}
+    footer span{color:var(--purple-light);font-family:'Orbitron',monospace}
+    .progress-bar{width:100%;height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+    .progress-fill{height:100%;background:linear-gradient(90deg,var(--purple),var(--purple-light));border-radius:2px;width:0%;transition:width .4s ease}
+  </style>
+</head>
+<body>
+  <div class="glow-orb orb1"></div>
+  <div class="glow-orb orb2"></div>
+  <header>
+    <div class="logo">CURS3D<span>AUDIO PORTAL</span></div>
+    <div class="tag">v2.0</div>
+  </header>
+  <div class="hero">
+    <h1>DROP THE<br/>TRACK.</h1>
+    <p>Paste a YouTube link. Get a direct MP3 URL. Everything on your site.</p>
+  </div>
+  <main>
+    <div class="card">
+      <div class="card-title">EXTRACT AUDIO</div>
+      <div class="field">
+        <label>YouTube URL</label>
+        <input type="url" id="ytUrl" placeholder="[youtube.com](https://www.youtube.com/watch?v=)"/>
+      </div>
+      <div class="field">
+        <label>Audio Quality</label>
+        <select id="quality">
+          <option value="128">128 kbps — Standard</option>
+          <option value="192" selected>192 kbps — High</option>
+          <option value="320">320 kbps — Maximum</option>
+        </select>
+      </div>
+      <div class="progress-bar" id="progressBar" style="margin-bottom:16px;display:none">
+        <div class="progress-fill" id="progressFill"></div>
+      </div>
+      <button class="btn btn-primary" id="extractBtn" onclick="extractAudio()">EXTRACT MP3</button>
+      <div class="status loading" id="statusLoading">
+        <div class="spinner"></div>
+        <span id="statusText">Converting...</span>
+      </div>
+      <div class="status error" id="statusError">
+        <span>⚠</span>
+        <span id="errorText">Something went wrong.</span>
+      </div>
+      <div class="status success" id="statusSuccess">
+        <div style="display:flex;align-items:center;gap:8px;font-weight:600">✓ MP3 ready — copy the link below</div>
+        <div class="result-url" id="resultUrl"></div>
+        <div class="result-actions">
+          <button class="btn btn-copy" onclick="copyUrl()">📋 Copy URL</button>
+          <button class="btn btn-copy" onclick="downloadMp3()">⬇ Download</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">HOW TO USE</div>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-text"><strong>Find your track on YouTube</strong> and copy the URL.</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text"><strong>Paste it above</strong>, pick quality, hit Extract. Takes ~15 seconds.</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-text"><strong>Copy the MP3 link</strong> — it's saved on your site permanently.</div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-text"><strong>Paste it</strong> into the Music URL field on your upload form. 🔥</div></div>
+      </div>
+    </div>
+  </main>
+  <footer>built for <span>CURS3D</span> · stay cursed</footer>
+  <script>
+    let lastUrl = '', lastFilename = '';
+
+    async function extractAudio() {
+      const url = document.getElementById('ytUrl').value.trim();
+      const quality = document.getElementById('quality').value;
+      const btn = document.getElementById('extractBtn');
+      hideAll();
+      if (!url) { showError('Paste a YouTube URL first, bro.'); return; }
+      const ytRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|shorts\/)|youtu\.be\/)[\w\-]{11}/;
+      if (!ytRegex.test(url)) { showError("That doesn't look like a valid YouTube URL."); return; }
+      btn.disabled = true;
+      showLoading('Downloading & converting — give it ~15 seconds...');
+      animateProgress();
+      try {
+        const res = await fetch('/convert', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, quality })
+        });
+        const data = await res.json();
+        if (data.url) { lastUrl = data.url; lastFilename = data.filename; showSuccess(data.url); }
+        else showError(data.error || 'Conversion failed.');
+      } catch (err) {
+        showError('Server error. Try again in a moment.');
+      } finally {
+        btn.disabled = false;
+        stopProgress();
+      }
+    }
+
+    function copyUrl() {
+      if (!lastUrl) return;
+      navigator.clipboard.writeText(lastUrl).then(() => {
+        const btn = event.target;
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => btn.textContent = '📋 Copy URL', 2000);
+      });
+    }
+
+    function downloadMp3() {
+      if (!lastUrl) return;
+      const a = document.createElement('a'); a.href = lastUrl; a.download = lastFilename || 'curs3d_track.mp3'; a.click();
+    }
+
+    function hideAll() { ['statusLoading','statusError','statusSuccess'].forEach(id => document.getElementById(id).style.display = 'none'); }
+    function showLoading(msg) { hideAll(); document.getElementById('statusText').textContent = msg; document.getElementById('statusLoading').style.display = 'flex'; document.getElementById('progressBar').style.display = 'block'; }
+    function showError(msg) { hideAll(); document.getElementById('errorText').textContent = msg; document.getElementById('statusError').style.display = 'flex'; stopProgress(); }
+    function showSuccess(url) { hideAll(); document.getElementById('resultUrl').textContent = url; document.getElementById('statusSuccess').style.display = 'flex'; document.getElementById('progressFill').style.width = '100%'; setTimeout(stopProgress, 600); }
+
+    let progressInterval;
+    function animateProgress() {
+      const fill = document.getElementById('progressFill'); let width = 0; fill.style.width = '0%';
+      progressInterval = setInterval(() => { if (width < 85) { width += Math.random() * 5; fill.style.width = Math.min(width, 85) + '%'; } }, 400);
+    }
+    function stopProgress() {
+      clearInterval(progressInterval);
+      setTimeout(() => { document.getElementById('progressBar').style.display = 'none'; document.getElementById('progressFill').style.width = '0%'; }, 800);
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('ytUrl').addEventListener('keydown', e => { if (e.key === 'Enter') extractAudio(); });
+    });
+  </script>
+</body>
+</html>
