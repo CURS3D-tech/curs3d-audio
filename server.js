@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
-const ytDlp = require('yt-dlp-exec');
+const { Innertube } = require('youtubei.js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,25 +16,46 @@ app.use(express.static(__dirname));
 app.use('/downloads', express.static(DOWNLOADS));
 
 app.post('/convert', async (req, res) => {
-  const { url, quality = '192' } = req.body;
+  const { url } = req.body;
   if (!url) return res.status(400).json({ error: 'No URL provided' });
 
-  const filename = `track_${Date.now()}.mp3`;
-  const outPath = path.join(DOWNLOADS, filename);
+  // Extract video ID from URL
+  const match = url.match(/(?:youtu\.be\/|v=|shorts\/)([\w\-]{11})/);
+  if (!match) return res.status(400).json({ error: 'Invalid YouTube URL' });
+  const videoId = match[1];
 
   try {
-    await ytDlp(url, {
-      extractAudio: true,
-      audioFormat: 'mp3',
-      audioQuality: `${quality}K`,
-      output: outPath,
+    const youtube = await Innertube.create({ cache: false });
+    const info = await youtube.getInfo(videoId);
+
+    // Pick best audio-only format
+    const format = info.chooseFormat({ type: 'audio', quality: 'best' });
+    if (!format) return res.status(500).json({ error: 'No audio format found' });
+
+    const filename = `track_${Date.now()}.mp3`;
+    const outPath = path.join(DOWNLOADS, filename);
+
+    // Stream audio directly to file
+    const stream = await info.download({ type: 'audio', quality: 'best' });
+    const writeStream = fs.createWriteStream(outPath);
+
+    for await (const chunk of stream) {
+      writeStream.write(chunk);
+    }
+
+    writeStream.end();
+
+    writeStream.on('finish', () => {
+      const fileUrl = `${req.protocol}://${req.get('host')}/downloads/${filename}`;
+      console.log(`Done: ${fileUrl}`);
+      res.json({ url: fileUrl, filename });
     });
 
-    // yt-dlp sometimes adds .mp3 extension itself
-    const finalName = fs.existsSync(outPath) ? filename : filename;
-    const fileUrl = `${req.protocol}://${req.get('host')}/downloads/${finalName}`;
+    writeStream.on('error', (err) => {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to save file' });
+    });
 
-    res.json({ url: fileUrl, filename: finalName });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Conversion failed: ' + err.message });
